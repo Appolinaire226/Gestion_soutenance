@@ -2,6 +2,7 @@ from flask import Flask
 from config import Config
 from flask_cors import CORS
 from extension import db
+from routes import etudiant_bp, enseignant_bp, session_bp, programme_bp, soutenance_bp, salle_bp, jury_bp, participation_bp, resultat_bp
 
 
 def create_app():
@@ -10,7 +11,6 @@ def create_app():
     db.init_app(app)
     CORS(app)
 
-    from routes import etudiant_bp, enseignant_bp, session_bp, programme_bp, soutenance_bp, salle_bp, jury_bp, participation_bp, resultat_bp
     app.register_blueprint(etudiant_bp)
     app.register_blueprint(enseignant_bp)
     app.register_blueprint(session_bp)
