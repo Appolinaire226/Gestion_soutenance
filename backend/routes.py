@@ -1,67 +1,92 @@
 from flask import Blueprint, jsonify, request
-from extension import db
+from extensions import db
 from models import *
 from werkzeug.security import generate_password_hash, check_password_hash
+from datetime import timedelta
 
 main_bp = Blueprint('main', __name__)
 
-# ===================== UTILISATEUR =====================
+
 
 @main_bp.route('/register', methods=['POST'])
 def register():
     data = request.get_json()
+    if not data or not data.get('email') or not data.get('mot_de_passe'):
+        return jsonify({'message': 'Email et mot de passe obligatoires'}), 400
     if Utilisateur.query.filter_by(email=data['email']).first():
         return jsonify({'message': 'Email déjà utilisé'}), 400
+
     u = Utilisateur(
         email=data['email'],
         mot_de_passe_hash=generate_password_hash(data['mot_de_passe']),
-        role=data['role'],
-        id_enseignant=data.get('id_enseignant')
+        role=data.get('role', 'enseignant'),
     )
     db.session.add(u)
+    db.session.flush()
+
+    if u.role == 'enseignant':
+        if not data.get('matricule') or not data.get('nom') or not data.get('prenom'):
+            return jsonify({'message': 'matricule, nom et prenom obligatoires pour un enseignant'}), 400
+        e = Enseignant(
+            matricule=data['matricule'],
+            nom=data['nom'],
+            prenom=data['prenom'],
+            grade=data.get('grade'),
+            specialite=data.get('specialite'),
+            email=data['email'],
+            telephone=data.get('telephone'),
+            statut='actif'
+        )
+        db.session.add(e)
+        db.session.flush()
+        u.id_enseignant = e.id_enseignant
+
+    elif u.role == 'etudiant':
+        if not data.get('matricule') or not data.get('nom') or not data.get('prenom') or not data.get('id_filiere'):
+            return jsonify({'message': 'matricule, nom, prenom et id_filiere obligatoires pour un etudiant'}), 400
+        et = Etudiant(
+            matricule=data['matricule'],
+            nom=data['nom'],
+            prenom=data['prenom'],
+            date_naissance=data.get('date_naissance'),
+            email=data['email'],
+            telephone=data.get('telephone'),
+            id_filiere=data['id_filiere']
+        )
+        db.session.add(et)
+
     db.session.commit()
-    return jsonify({'message': 'Utilisateur créé avec succès'}), 201
+    return jsonify({'message': f'Inscription réussie en tant que {u.role}'}), 201
 
 @main_bp.route('/login', methods=['POST'])
 def login():
     data = request.get_json()
+    if not data or not data.get('email') or not data.get('mot_de_passe'):
+        return jsonify({'message': 'Email et mot de passe obligatoires'}), 400
     u = Utilisateur.query.filter_by(email=data['email']).first()
     if not u or not check_password_hash(u.mot_de_passe_hash, data['mot_de_passe']):
         return jsonify({'message': 'Email ou mot de passe incorrect'}), 401
     return jsonify({
         'message': 'Connexion réussie',
-        'id_utilisateur': u.id_utilisateur,
-        'email': u.email,
-        'role': u.role
+        **u.to_dict()
     })
 
-# ===================== FILIERE =====================
+
 
 @main_bp.route('/filieres', methods=['GET'])
 def get_filieres():
-    filieres = Filiere.query.all()
-    return jsonify([{
-        'id_filiere': f.id_filiere,
-        'code_filiere': f.code_filiere,
-        'libelle': f.libelle
-    } for f in filieres])
+    return jsonify([f.to_dict() for f in Filiere.query.all()])
 
 @main_bp.route('/filieres/<int:id>', methods=['GET'])
 def get_filiere(id):
-    f = Filiere.query.get_or_404(id)
-    return jsonify({
-        'id_filiere': f.id_filiere,
-        'code_filiere': f.code_filiere,
-        'libelle': f.libelle
-    })
+    return jsonify(Filiere.query.get_or_404(id).to_dict())
 
 @main_bp.route('/filieres', methods=['POST'])
 def add_filiere():
     data = request.get_json()
-    f = Filiere(
-        code_filiere=data['code_filiere'],
-        libelle=data['libelle']
-    )
+    if not data or not data.get('code_filiere') or not data.get('libelle'):
+        return jsonify({'message': 'code_filiere et libelle obligatoires'}), 400
+    f = Filiere(code_filiere=data['code_filiere'], libelle=data['libelle'])
     db.session.add(f)
     db.session.commit()
     return jsonify({'message': 'Filière ajoutée avec succès'}), 201
@@ -82,33 +107,23 @@ def delete_filiere(id):
     db.session.commit()
     return jsonify({'message': 'Filière supprimée avec succès'})
 
-# ===================== SALLE =====================
+
 
 @main_bp.route('/salles', methods=['GET'])
 def get_salles():
-    salles = Salle.query.all()
-    return jsonify([{
-        'id_salle': s.id_salle,
-        'nom_salle': s.nom_salle,
-        'capacite': s.capacite,
-        'batiment': s.batiment,
-        'equipements': s.equipements
-    } for s in salles])
+    return jsonify([s.to_dict() for s in Salle.query.all()])
 
 @main_bp.route('/salles/<int:id>', methods=['GET'])
 def get_salle(id):
-    s = Salle.query.get_or_404(id)
-    return jsonify({
-        'id_salle': s.id_salle,
-        'nom_salle': s.nom_salle,
-        'capacite': s.capacite,
-        'batiment': s.batiment,
-        'equipements': s.equipements
-    })
+    return jsonify(Salle.query.get_or_404(id).to_dict())
 
 @main_bp.route('/salles', methods=['POST'])
 def add_salle():
     data = request.get_json()
+    if not data or not data.get('nom_salle') or not data.get('capacite'):
+        return jsonify({'message': 'nom_salle et capacite obligatoires'}), 400
+    if data['capacite'] <= 0:
+        return jsonify({'message': 'La capacité doit être supérieure à 0'}), 400
     s = Salle(
         nom_salle=data['nom_salle'],
         capacite=data['capacite'],
@@ -137,35 +152,23 @@ def delete_salle(id):
     db.session.commit()
     return jsonify({'message': 'Salle supprimée avec succès'})
 
-# ===================== SESSION =====================
+
 
 @main_bp.route('/sessions', methods=['GET'])
 def get_sessions():
-    sessions = Session.query.all()
-    return jsonify([{
-        'id_session': s.id_session,
-        'libelle': s.libelle,
-        'annee_academique': s.annee_academique,
-        'date_debut': str(s.date_debut),
-        'date_fin': str(s.date_fin),
-        'statut': s.statut
-    } for s in sessions])
+    return jsonify([s.to_dict() for s in Session.query.all()])
 
 @main_bp.route('/sessions/<int:id>', methods=['GET'])
 def get_session(id):
-    s = Session.query.get_or_404(id)
-    return jsonify({
-        'id_session': s.id_session,
-        'libelle': s.libelle,
-        'annee_academique': s.annee_academique,
-        'date_debut': str(s.date_debut),
-        'date_fin': str(s.date_fin),
-        'statut': s.statut
-    })
+    return jsonify(Session.query.get_or_404(id).to_dict())
 
 @main_bp.route('/sessions', methods=['POST'])
 def add_session():
     data = request.get_json()
+    if not data or not data.get('libelle') or not data.get('date_debut') or not data.get('date_fin'):
+        return jsonify({'message': 'libelle, date_debut et date_fin obligatoires'}), 400
+    if data['date_fin'] < data['date_debut']:
+        return jsonify({'message': 'date_fin doit être après date_debut'}), 400
     s = Session(
         libelle=data['libelle'],
         annee_academique=data['annee_academique'],
@@ -194,56 +197,15 @@ def delete_session(id):
     s = Session.query.get_or_404(id)
     db.session.delete(s)
     db.session.commit()
-    return jsonify({'message': 'Session supprimée avec succès'})
-
-# ===================== ENSEIGNANT =====================
+    return jsonify({'message': 'Session supprimée'})
 
 @main_bp.route('/enseignants', methods=['GET'])
 def get_enseignants():
-    enseignants = Enseignant.query.all()
-    return jsonify([{
-        'id_enseignant': e.id_enseignant,
-        'matricule': e.matricule,
-        'nom': e.nom,
-        'prenom': e.prenom,
-        'grade': e.grade,
-        'specialite': e.specialite,
-        'email': e.email,
-        'telephone': e.telephone,
-        'statut': e.statut
-    } for e in enseignants])
+    return jsonify([e.to_dict() for e in Enseignant.query.all()])
 
 @main_bp.route('/enseignants/<int:id>', methods=['GET'])
 def get_enseignant(id):
-    e = Enseignant.query.get_or_404(id)
-    return jsonify({
-        'id_enseignant': e.id_enseignant,
-        'matricule': e.matricule,
-        'nom': e.nom,
-        'prenom': e.prenom,
-        'grade': e.grade,
-        'specialite': e.specialite,
-        'email': e.email,
-        'telephone': e.telephone,
-        'statut': e.statut
-    })
-
-@main_bp.route('/enseignants', methods=['POST'])
-def add_enseignant():
-    data = request.get_json()
-    e = Enseignant(
-        matricule=data['matricule'],
-        nom=data['nom'],
-        prenom=data['prenom'],
-        grade=data.get('grade'),
-        specialite=data.get('specialite'),
-        email=data.get('email'),
-        telephone=data.get('telephone'),
-        statut=data.get('statut', 'actif')
-    )
-    db.session.add(e)
-    db.session.commit()
-    return jsonify({'message': 'Enseignant ajouté avec succès'}), 201
+    return jsonify(Enseignant.query.get_or_404(id).to_dict())
 
 @main_bp.route('/enseignants/<int:id>', methods=['PUT'])
 def update_enseignant(id):
@@ -267,51 +229,13 @@ def delete_enseignant(id):
     db.session.commit()
     return jsonify({'message': 'Enseignant supprimé avec succès'})
 
-# ===================== ETUDIANT =====================
-
 @main_bp.route('/etudiants', methods=['GET'])
 def get_etudiants():
-    etudiants = Etudiant.query.all()
-    return jsonify([{
-        'id_etudiant': e.id_etudiant,
-        'matricule': e.matricule,
-        'nom': e.nom,
-        'prenom': e.prenom,
-        'date_naissance': str(e.date_naissance),
-        'email': e.email,
-        'telephone': e.telephone,
-        'id_filiere': e.id_filiere
-    } for e in etudiants])
+    return jsonify([e.to_dict() for e in Etudiant.query.all()])
 
 @main_bp.route('/etudiants/<int:id>', methods=['GET'])
 def get_etudiant(id):
-    e = Etudiant.query.get_or_404(id)
-    return jsonify({
-        'id_etudiant': e.id_etudiant,
-        'matricule': e.matricule,
-        'nom': e.nom,
-        'prenom': e.prenom,
-        'date_naissance': str(e.date_naissance),
-        'email': e.email,
-        'telephone': e.telephone,
-        'id_filiere': e.id_filiere
-    })
-
-@main_bp.route('/etudiants', methods=['POST'])
-def add_etudiant():
-    data = request.get_json()
-    e = Etudiant(
-        matricule=data['matricule'],
-        nom=data['nom'],
-        prenom=data['prenom'],
-        date_naissance=data.get('date_naissance'),
-        email=data.get('email'),
-        telephone=data.get('telephone'),
-        id_filiere=data['id_filiere']
-    )
-    db.session.add(e)
-    db.session.commit()
-    return jsonify({'message': 'Etudiant ajouté avec succès'}), 201
+    return jsonify(Etudiant.query.get_or_404(id).to_dict())
 
 @main_bp.route('/etudiants/<int:id>', methods=['PUT'])
 def update_etudiant(id):
@@ -334,39 +258,21 @@ def delete_etudiant(id):
     db.session.commit()
     return jsonify({'message': 'Etudiant supprimé avec succès'})
 
-# ===================== RAPPORT =====================
+
 
 @main_bp.route('/rapports', methods=['GET'])
 def get_rapports():
-    rapports = Rapport.query.all()
-    return jsonify([{
-        'id_rapport': r.id_rapport,
-        'titre': r.titre,
-        'resume': r.resume,
-        'fichier_url': r.fichier_url,
-        'date_depot': str(r.date_depot),
-        'id_etudiant': r.id_etudiant,
-        'id_session': r.id_session,
-        'statut': r.statut
-    } for r in rapports])
+    return jsonify([r.to_dict() for r in Rapport.query.all()])
 
 @main_bp.route('/rapports/<int:id>', methods=['GET'])
 def get_rapport(id):
-    r = Rapport.query.get_or_404(id)
-    return jsonify({
-        'id_rapport': r.id_rapport,
-        'titre': r.titre,
-        'resume': r.resume,
-        'fichier_url': r.fichier_url,
-        'date_depot': str(r.date_depot),
-        'id_etudiant': r.id_etudiant,
-        'id_session': r.id_session,
-        'statut': r.statut
-    })
+    return jsonify(Rapport.query.get_or_404(id).to_dict())
 
 @main_bp.route('/rapports', methods=['POST'])
 def add_rapport():
     data = request.get_json()
+    if not data or not data.get('titre') or not data.get('id_etudiant') or not data.get('id_session'):
+        return jsonify({'message': 'titre, id_etudiant et id_session obligatoires'}), 400
     r = Rapport(
         titre=data['titre'],
         resume=data.get('resume'),
@@ -397,33 +303,22 @@ def delete_rapport(id):
     db.session.commit()
     return jsonify({'message': 'Rapport supprimé avec succès'})
 
-# ===================== DISPONIBILITE =====================
 
 @main_bp.route('/disponibilites', methods=['GET'])
 def get_disponibilites():
-    disponibilites = Disponibilite.query.all()
-    return jsonify([{
-        'id_disponibilite': d.id_disponibilite,
-        'id_enseignant': d.id_enseignant,
-        'id_session': d.id_session,
-        'date_debut': str(d.date_debut),
-        'date_fin': str(d.date_fin)
-    } for d in disponibilites])
+    return jsonify([d.to_dict() for d in Disponibilite.query.all()])
 
 @main_bp.route('/disponibilites/<int:id>', methods=['GET'])
 def get_disponibilite(id):
-    d = Disponibilite.query.get_or_404(id)
-    return jsonify({
-        'id_disponibilite': d.id_disponibilite,
-        'id_enseignant': d.id_enseignant,
-        'id_session': d.id_session,
-        'date_debut': str(d.date_debut),
-        'date_fin': str(d.date_fin)
-    })
+    return jsonify(Disponibilite.query.get_or_404(id).to_dict())
 
 @main_bp.route('/disponibilites', methods=['POST'])
 def add_disponibilite():
     data = request.get_json()
+    if not data or not data.get('id_enseignant') or not data.get('id_session') or not data.get('date_debut') or not data.get('date_fin'):
+        return jsonify({'message': 'id_enseignant, id_session, date_debut et date_fin obligatoires'}), 400
+    if data['date_fin'] <= data['date_debut']:
+        return jsonify({'message': 'date_fin doit être après date_debut'}), 400
     d = Disponibilite(
         id_enseignant=data['id_enseignant'],
         id_session=data['id_session'],
@@ -452,48 +347,15 @@ def delete_disponibilite(id):
     db.session.commit()
     return jsonify({'message': 'Disponibilité supprimée avec succès'})
 
-# ===================== PROGRAMME =====================
+
 
 @main_bp.route('/programmes', methods=['GET'])
 def get_programmes():
-    programmes = Programme.query.all()
-    return jsonify([{
-        'id_programme': p.id_programme,
-        'id_session': p.id_session,
-        'id_rapport': p.id_rapport,
-        'id_salle': p.id_salle,
-        'date_heure': str(p.date_heure),
-        'duree_minutes': p.duree_minutes,
-        'statut': p.statut
-    } for p in programmes])
+    return jsonify([p.to_dict() for p in Programme.query.all()])
 
 @main_bp.route('/programmes/<int:id>', methods=['GET'])
 def get_programme(id):
-    p = Programme.query.get_or_404(id)
-    return jsonify({
-        'id_programme': p.id_programme,
-        'id_session': p.id_session,
-        'id_rapport': p.id_rapport,
-        'id_salle': p.id_salle,
-        'date_heure': str(p.date_heure),
-        'duree_minutes': p.duree_minutes,
-        'statut': p.statut
-    })
-
-@main_bp.route('/programmes', methods=['POST'])
-def add_programme():
-    data = request.get_json()
-    p = Programme(
-        id_session=data['id_session'],
-        id_rapport=data['id_rapport'],
-        id_salle=data['id_salle'],
-        date_heure=data['date_heure'],
-        duree_minutes=data.get('duree_minutes', 45),
-        statut=data.get('statut', 'proposé')
-    )
-    db.session.add(p)
-    db.session.commit()
-    return jsonify({'message': 'Programme ajouté avec succès'}), 201
+    return jsonify(Programme.query.get_or_404(id).to_dict())
 
 @main_bp.route('/programmes/<int:id>', methods=['PUT'])
 def update_programme(id):
@@ -515,58 +377,100 @@ def delete_programme(id):
     db.session.commit()
     return jsonify({'message': 'Programme supprimé avec succès'})
 
-# Route spéciale - Valider ou refuser un programme
 @main_bp.route('/programmes/<int:id>/valider', methods=['PUT'])
 def valider_programme(id):
     p = Programme.query.get_or_404(id)
     data = request.get_json()
-    p.statut = data['statut']  # 'validé' ou 'annulé'
+    statut = data.get('statut')
+    if statut not in ['validé', 'annulé']:
+        return jsonify({'message': 'Statut invalide — choisir validé ou annulé'}), 400
+    p.statut = statut
     db.session.commit()
-    return jsonify({'message': f'Programme {p.statut} avec succès'})
+    return jsonify({'message': f'Programme {p.statut}'})
 
-# ===================== JURY =====================
+@main_bp.route('/programmes/generer/<int:id_session>', methods=['POST'])
+def generer_programme(id_session):
+    Session.query.get_or_404(id_session)
+    rapports = Rapport.query.filter_by(id_session=id_session, statut='validé').all()
+    if not rapports:
+        return jsonify({'message': 'Aucun rapport validé pour cette session'}), 400
+    salles = Salle.query.all()
+    if not salles:
+        return jsonify({'message': 'Aucune salle disponible'}), 400
+    disponibilites = Disponibilite.query.filter_by(id_session=id_session).all()
+    if not disponibilites:
+        return jsonify({'message': 'Aucune disponibilité enregistrée'}), 400
+
+    programmes_crees = []
+    enseignants_occupes = {}
+
+    for rapport in rapports:
+        programme_cree = False
+        for dispo in disponibilites:
+            date_heure = dispo.date_debut
+            salle_libre = None
+            for salle in salles:
+                if not Programme.query.filter_by(id_salle=salle.id_salle, date_heure=date_heure).first():
+                    salle_libre = salle
+                    break
+            if not salle_libre:
+                continue
+            enseignants_dispo = Disponibilite.query.filter(
+                Disponibilite.id_session == id_session,
+                Disponibilite.date_debut <= date_heure,
+                Disponibilite.date_fin >= date_heure + timedelta(minutes=45)
+            ).all()
+            occupes = enseignants_occupes.get(str(date_heure), [])
+            enseignants_libres = list(set([
+                d.id_enseignant for d in enseignants_dispo
+                if d.id_enseignant not in occupes
+            ]))
+            if len(enseignants_libres) < 4:
+                continue
+            p = Programme(
+                id_session=id_session,
+                id_rapport=rapport.id_rapport,
+                id_salle=salle_libre.id_salle,
+                date_heure=date_heure,
+                duree_minutes=45,
+                statut='proposé'
+            )
+            db.session.add(p)
+            db.session.flush()
+            roles = ['président', 'rapporteur', 'examinateur', 'examinateur']
+            for i, role in enumerate(roles):
+                db.session.add(Jury(
+                    id_programme=p.id_programme,
+                    id_enseignant=enseignants_libres[i],
+                    role_jury=role,
+                    present=False
+                ))
+            if str(date_heure) not in enseignants_occupes:
+                enseignants_occupes[str(date_heure)] = []
+            enseignants_occupes[str(date_heure)].extend(enseignants_libres[:4])
+            programmes_crees.append(rapport.id_rapport)
+            programme_cree = True
+            break
+        if not programme_cree:
+            db.session.rollback()
+            return jsonify({'message': f'Impossible de planifier le rapport {rapport.id_rapport}'}), 400
+
+    db.session.commit()
+    return jsonify({'message': f'{len(programmes_crees)} programme(s) généré(s) avec succès'}), 201
+
 
 @main_bp.route('/jurys', methods=['GET'])
 def get_jurys():
-    jurys = Jury.query.all()
-    return jsonify([{
-        'id_jury': j.id_jury,
-        'id_programme': j.id_programme,
-        'id_enseignant': j.id_enseignant,
-        'role_jury': j.role_jury,
-        'present': j.present
-    } for j in jurys])
+    return jsonify([j.to_dict() for j in Jury.query.all()])
 
 @main_bp.route('/jurys/<int:id>', methods=['GET'])
 def get_jury(id):
-    j = Jury.query.get_or_404(id)
-    return jsonify({
-        'id_jury': j.id_jury,
-        'id_programme': j.id_programme,
-        'id_enseignant': j.id_enseignant,
-        'role_jury': j.role_jury,
-        'present': j.present
-    })
-
-@main_bp.route('/jurys', methods=['POST'])
-def add_jury():
-    data = request.get_json()
-    j = Jury(
-        id_programme=data['id_programme'],
-        id_enseignant=data['id_enseignant'],
-        role_jury=data['role_jury'],
-        present=data.get('present', False)
-    )
-    db.session.add(j)
-    db.session.commit()
-    return jsonify({'message': 'Jury ajouté avec succès'}), 201
+    return jsonify(Jury.query.get_or_404(id).to_dict())
 
 @main_bp.route('/jurys/<int:id>', methods=['PUT'])
 def update_jury(id):
     j = Jury.query.get_or_404(id)
     data = request.get_json()
-    j.id_programme = data.get('id_programme', j.id_programme)
-    j.id_enseignant = data.get('id_enseignant', j.id_enseignant)
     j.role_jury = data.get('role_jury', j.role_jury)
     j.present = data.get('present', j.present)
     db.session.commit()
@@ -579,20 +483,24 @@ def delete_jury(id):
     db.session.commit()
     return jsonify({'message': 'Jury supprimé avec succès'})
 
-# ===================== VALIDATION PROGRAMME =====================
+
 
 @main_bp.route('/validations', methods=['GET'])
 def get_validations():
-    validations = ValidationProgramme.query.all()
-    return jsonify([{
-        'id_programme': v.id_programme,
-        'id_enseignant': v.id_enseignant,
-        'statut': v.statut
-    } for v in validations])
+    return jsonify([v.to_dict() for v in ValidationProgramme.query.all()])
 
 @main_bp.route('/validations', methods=['POST'])
 def add_validation():
     data = request.get_json()
+    if not data or not data.get('id_programme') or not data.get('id_enseignant'):
+        return jsonify({'message': 'id_programme et id_enseignant obligatoires'}), 400
+    Programme.query.get_or_404(data['id_programme'])
+    Enseignant.query.get_or_404(data['id_enseignant'])
+    if ValidationProgramme.query.filter_by(
+        id_programme=data['id_programme'],
+        id_enseignant=data['id_enseignant']
+    ).first():
+        return jsonify({'message': 'Validation déjà enregistrée'}), 400
     v = ValidationProgramme(
         id_programme=data['id_programme'],
         id_enseignant=data['id_enseignant'],
@@ -606,7 +514,10 @@ def add_validation():
 def update_validation(id_programme, id_enseignant):
     v = ValidationProgramme.query.get_or_404((id_programme, id_enseignant))
     data = request.get_json()
-    v.statut = data.get('statut', v.statut)
+    statut = data.get('statut')
+    if statut not in ['en_attente', 'approuvé', 'réfusé']:
+        return jsonify({'message': 'Statut invalide'}), 400
+    v.statut = statut
     db.session.commit()
     return jsonify({'message': 'Validation modifiée avec succès'})
 
@@ -617,41 +528,33 @@ def delete_validation(id_programme, id_enseignant):
     db.session.commit()
     return jsonify({'message': 'Validation supprimée avec succès'})
 
-# ===================== RESULTAT =====================
+
 
 @main_bp.route('/resultats', methods=['GET'])
 def get_resultats():
-    resultats = Resultat.query.all()
-    return jsonify([{
-        'id_resultat': r.id_resultat,
-        'id_programme': r.id_programme,
-        'mention': r.mention,
-        'note': float(r.note) if r.note else None,
-        'observation': r.observation,
-        'date_deliberation': str(r.date_deliberation),
-        'enregistre_par': r.enregistre_par
-    } for r in resultats])
+    return jsonify([r.to_dict() for r in Resultat.query.all()])
 
 @main_bp.route('/resultats/<int:id>', methods=['GET'])
 def get_resultat(id):
-    r = Resultat.query.get_or_404(id)
-    return jsonify({
-        'id_resultat': r.id_resultat,
-        'id_programme': r.id_programme,
-        'mention': r.mention,
-        'note': float(r.note) if r.note else None,
-        'observation': r.observation,
-        'date_deliberation': str(r.date_deliberation),
-        'enregistre_par': r.enregistre_par
-    })
+    return jsonify(Resultat.query.get_or_404(id).to_dict())
 
 @main_bp.route('/resultats', methods=['POST'])
 def add_resultat():
     data = request.get_json()
+    if not data or not data.get('id_programme'):
+        return jsonify({'message': 'id_programme obligatoire'}), 400
+    p = Programme.query.get_or_404(data['id_programme'])
+    if p.statut != 'réalisé':
+        return jsonify({'message': 'Le programme doit être réalisé avant d\'enregistrer un résultat'}), 400
+    if Resultat.query.filter_by(id_programme=data['id_programme']).first():
+        return jsonify({'message': 'Résultat déjà enregistré pour ce programme'}), 400
+    note = data.get('note')
+    if note is not None and (float(note) < 0 or float(note) > 20):
+        return jsonify({'message': 'La note doit être entre 0 et 20'}), 400
     r = Resultat(
         id_programme=data['id_programme'],
         mention=data.get('mention'),
-        note=data.get('note'),
+        note=note,
         observation=data.get('observation'),
         enregistre_par=data.get('enregistre_par')
     )
@@ -663,8 +566,11 @@ def add_resultat():
 def update_resultat(id):
     r = Resultat.query.get_or_404(id)
     data = request.get_json()
+    note = data.get('note', r.note)
+    if note is not None and (float(note) < 0 or float(note) > 20):
+        return jsonify({'message': 'La note doit être entre 0 et 20'}), 400
     r.mention = data.get('mention', r.mention)
-    r.note = data.get('note', r.note)
+    r.note = note
     r.observation = data.get('observation', r.observation)
     r.enregistre_par = data.get('enregistre_par', r.enregistre_par)
     db.session.commit()

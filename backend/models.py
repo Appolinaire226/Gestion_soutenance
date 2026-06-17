@@ -1,6 +1,7 @@
-from extension import db
 
-# 1. Filiere
+from extensions import db
+
+
 class Filiere(db.Model):
     __tablename__ = 'filiere'
     __table_args__ = {'schema': 'jury'}
@@ -10,7 +11,14 @@ class Filiere(db.Model):
     libelle = db.Column(db.String(100), nullable=False)
     etudiants = db.relationship('Etudiant', backref='filiere')
 
-# 2. Salle
+    def to_dict(self):
+        return {
+            'id_filiere': self.id_filiere,
+            'code_filiere': self.code_filiere,
+            'libelle': self.libelle
+        }
+
+
 class Salle(db.Model):
     __tablename__ = 'salle'
     __table_args__ = {'schema': 'jury'}
@@ -22,7 +30,16 @@ class Salle(db.Model):
     equipements = db.Column(db.Text)
     programmes = db.relationship('Programme', backref='salle')
 
-# 3. Session
+    def to_dict(self):
+        return {
+            'id_salle': self.id_salle,
+            'nom_salle': self.nom_salle,
+            'capacite': self.capacite,
+            'batiment': self.batiment,
+            'equipements': self.equipements
+        }
+
+
 class Session(db.Model):
     __tablename__ = 'session'
     __table_args__ = {'schema': 'jury'}
@@ -37,7 +54,17 @@ class Session(db.Model):
     rapports = db.relationship('Rapport', backref='session')
     programmes = db.relationship('Programme', backref='session')
 
-# 4. Enseignant
+    def to_dict(self):
+        return {
+            'id_session': self.id_session,
+            'libelle': self.libelle,
+            'annee_academique': self.annee_academique,
+            'date_debut': str(self.date_debut),
+            'date_fin': str(self.date_fin),
+            'statut': self.statut
+        }
+
+
 class Enseignant(db.Model):
     __tablename__ = 'enseignant'
     __table_args__ = {'schema': 'jury'}
@@ -56,7 +83,20 @@ class Enseignant(db.Model):
     validations = db.relationship('ValidationProgramme', backref='enseignant')
     utilisateur = db.relationship('Utilisateur', backref='enseignant', uselist=False)
 
-# 5. Etudiant
+    def to_dict(self):
+        return {
+            'id_enseignant': self.id_enseignant,
+            'matricule': self.matricule,
+            'nom': self.nom,
+            'prenom': self.prenom,
+            'grade': self.grade,
+            'specialite': self.specialite,
+            'email': self.email,
+            'telephone': self.telephone,
+            'statut': self.statut
+        }
+
+
 class Etudiant(db.Model):
     __tablename__ = 'etudiant'
     __table_args__ = {'schema': 'jury'}
@@ -71,7 +111,18 @@ class Etudiant(db.Model):
     id_filiere = db.Column(db.Integer, db.ForeignKey('jury.filiere.id_filiere'), nullable=False)
     rapports = db.relationship('Rapport', backref='etudiant')
 
-# 6. Rapport
+    def to_dict(self):
+        return {
+            'id_etudiant': self.id_etudiant,
+            'matricule': self.matricule,
+            'nom': self.nom,
+            'prenom': self.prenom,
+            'date_naissance': str(self.date_naissance) if self.date_naissance else None,
+            'email': self.email,
+            'telephone': self.telephone,
+            'id_filiere': self.id_filiere
+        }
+
 class Rapport(db.Model):
     __tablename__ = 'rapport'
     __table_args__ = {'schema': 'jury'}
@@ -86,7 +137,19 @@ class Rapport(db.Model):
     statut = db.Column(db.String(30), default='déposé', nullable=False)
     programmes = db.relationship('Programme', backref='rapport')
 
-# 7. Disponibilite
+    def to_dict(self):
+        return {
+            'id_rapport': self.id_rapport,
+            'titre': self.titre,
+            'resume': self.resume,
+            'fichier_url': self.fichier_url,
+            'date_depot': str(self.date_depot),
+            'id_etudiant': self.id_etudiant,
+            'id_session': self.id_session,
+            'statut': self.statut
+        }
+
+
 class Disponibilite(db.Model):
     __tablename__ = 'disponibilite'
     __table_args__ = {'schema': 'jury'}
@@ -97,7 +160,16 @@ class Disponibilite(db.Model):
     date_debut = db.Column(db.DateTime, nullable=False)
     date_fin = db.Column(db.DateTime, nullable=False)
 
-# 8. Programme
+    def to_dict(self):
+        return {
+            'id_disponibilite': self.id_disponibilite,
+            'id_enseignant': self.id_enseignant,
+            'id_session': self.id_session,
+            'date_debut': str(self.date_debut),
+            'date_fin': str(self.date_fin)
+        }
+
+
 class Programme(db.Model):
     __tablename__ = 'programme'
     __table_args__ = {'schema': 'jury'}
@@ -113,7 +185,18 @@ class Programme(db.Model):
     resultat = db.relationship('Resultat', backref='programme', uselist=False)
     validations = db.relationship('ValidationProgramme', backref='programme')
 
-# 9. Jury
+    def to_dict(self):
+        return {
+            'id_programme': self.id_programme,
+            'id_session': self.id_session,
+            'id_rapport': self.id_rapport,
+            'id_salle': self.id_salle,
+            'date_heure': str(self.date_heure),
+            'duree_minutes': self.duree_minutes,
+            'statut': self.statut
+        }
+
+
 class Jury(db.Model):
     __tablename__ = 'jury'
     __table_args__ = {'schema': 'jury'}
@@ -124,7 +207,16 @@ class Jury(db.Model):
     role_jury = db.Column(db.String(30), nullable=False)
     present = db.Column(db.Boolean, default=False, nullable=False)
 
-# 10. Resultat
+    def to_dict(self):
+        return {
+            'id_jury': self.id_jury,
+            'id_programme': self.id_programme,
+            'id_enseignant': self.id_enseignant,
+            'role_jury': self.role_jury,
+            'present': self.present
+        }
+
+
 class Resultat(db.Model):
     __tablename__ = 'resultat'
     __table_args__ = {'schema': 'jury'}
@@ -137,7 +229,18 @@ class Resultat(db.Model):
     date_deliberation = db.Column(db.DateTime, default=db.func.now(), nullable=False)
     enregistre_par = db.Column(db.Integer, db.ForeignKey('jury.enseignant.id_enseignant'))
 
-# 11. ValidationProgramme
+    def to_dict(self):
+        return {
+            'id_resultat': self.id_resultat,
+            'id_programme': self.id_programme,
+            'mention': self.mention,
+            'note': float(self.note) if self.note else None,
+            'observation': self.observation,
+            'date_deliberation': str(self.date_deliberation),
+            'enregistre_par': self.enregistre_par
+        }
+
+
 class ValidationProgramme(db.Model):
     __tablename__ = 'validation_programme'
     __table_args__ = {'schema': 'jury'}
@@ -146,7 +249,14 @@ class ValidationProgramme(db.Model):
     id_enseignant = db.Column(db.Integer, db.ForeignKey('jury.enseignant.id_enseignant'), primary_key=True)
     statut = db.Column(db.String(20), default='en_attente', nullable=False)
 
-# 12. Utilisateur
+    def to_dict(self):
+        return {
+            'id_programme': self.id_programme,
+            'id_enseignant': self.id_enseignant,
+            'statut': self.statut
+        }
+
+
 class Utilisateur(db.Model):
     __tablename__ = 'utilisateur'
     __table_args__ = {'schema': 'jury'}
@@ -156,3 +266,11 @@ class Utilisateur(db.Model):
     mot_de_passe_hash = db.Column(db.String(255), nullable=False)
     role = db.Column(db.String(20), nullable=False)
     id_enseignant = db.Column(db.Integer, db.ForeignKey('jury.enseignant.id_enseignant'))
+
+    def to_dict(self):
+        return {
+            'id_utilisateur': self.id_utilisateur,
+            'email': self.email,
+            'role': self.role,
+            'id_enseignant': self.id_enseignant
+        }
