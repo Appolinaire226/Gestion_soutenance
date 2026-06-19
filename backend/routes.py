@@ -22,7 +22,7 @@ def login():
     Reçoit : {"email": "...", "mot_de_passe": "..."}
     Retourne : {"token": "...", "role": "...", "id_utilisateur": ...}
     """
-    data = request.get_json()
+    data = request.get_json(force=True)
 
     if not data or "email" not in data or "mot_de_passe" not in data:
         return jsonify({"erreur": "Email et mot de passe requis"}), 400
@@ -53,7 +53,7 @@ def register():
     Crée un nouvel utilisateur.
     Reçoit : {"email": "...", "mot_de_passe": "...", "role": "...", "id_enseignant": ... (optionnel)}
     """
-    data = request.get_json()
+    data = request.get_json(force=True)
 
     if not data or "email" not in data or "mot_de_passe" not in data or "role" not in data:
         return jsonify({"erreur": "Email, mot de passe et rôle requis"}), 400
