@@ -157,10 +157,8 @@ CREATE TABLE jury.utilisateur (
     email character varying(150) NOT NULL,
     mot_de_passe_hash character varying(255) NOT NULL,
     role character varying(20) NOT NULL,
-    id_enseignant integer,
     CONSTRAINT utilisateur_email_key UNIQUE (email),
     CONSTRAINT utilisateur_role_check CHECK (role IN ('etudiant', 'enseignant', 'admin')),
-    CONSTRAINT utilisateur_id_enseignant_fkey FOREIGN KEY (id_enseignant) REFERENCES jury.enseignant (id_enseignant)
 );
 
 --
