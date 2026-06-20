@@ -307,15 +307,11 @@ class Utilisateur(db.Model):
     email             = db.Column(db.String(150), nullable=False, unique=True)
     mot_de_passe_hash = db.Column(db.String(255), nullable=False)
     role              = db.Column(db.String(20), nullable=False)
-    id_enseignant     = db.Column(db.Integer, db.ForeignKey("jury.enseignant.id_enseignant"), nullable=True)
-
     # Relation
-    enseignant = db.relationship("Enseignant", back_populates="utilisateur")
     #Fonction pour convertir l'objet en dictionnaire 
     def to_dict(self):
         return {
             "id_utilisateur": self.id_utilisateur,
             "email":          self.email,
             "role":           self.role,
-            "id_enseignant":  self.id_enseignant,
         }
