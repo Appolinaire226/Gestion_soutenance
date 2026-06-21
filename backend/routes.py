@@ -65,6 +65,7 @@ def register():
         email=data["email"],
         mot_de_passe_hash=generate_password_hash(data["mot_de_passe"]),
         role=data["role"],
+        id_enseignant=data.get("id_enseignant")
     )
 
     db.session.add(nouvel_utilisateur)
