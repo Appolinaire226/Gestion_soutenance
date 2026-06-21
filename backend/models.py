@@ -122,6 +122,7 @@ class Etudiant(db.Model):
     # Relations
     filiere  = db.relationship("Filiere", back_populates="etudiants")
     rapports = db.relationship("Rapport", back_populates="etudiant", lazy=True)
+    utilisateur = db.relationship("Utilisateur", back_populates="etudiant")
 
     def to_dict(self):
         return {
