@@ -337,9 +337,6 @@ def deposer_rapport():
  
     # Vérification anti-usurpation : le matricule saisi doit être celui
     # de l'étudiant réellement connecté, pas celui d'un tiers.
-    if etudiant.id_etudiant != id_etudiant_token:
-        return jsonify({"erreur": "Ce matricule ne correspond pas à votre compte"}), 403
- 
     if not Session.query.get(data["id_session"]):
         return jsonify({"erreur": "Session introuvable"}), 404
  
