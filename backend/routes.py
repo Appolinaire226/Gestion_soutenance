@@ -325,10 +325,6 @@ def deposer_rapport():
     if claims.get("role") != "etudiant":
         return jsonify({"erreur": "Seul un étudiant peut déposer un rapport"}), 403
  
-    id_etudiant_token = claims.get("id_etudiant")
-    if not id_etudiant_token:
-        return jsonify({"erreur": "Ce compte n'est lié à aucune fiche étudiant"}), 400
- 
     data = request.get_json(force=True)
  
     champs_requis = ["matricule", "titre", "id_session"]
