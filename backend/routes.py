@@ -309,31 +309,63 @@ def voir_rapport(id_rapport):
 @jwt_required()
 def deposer_rapport():
     """
-    Reçoit : {"titre": "...", "id_etudiant": ..., "id_session": ...,
+    Dépôt de rapport — RÉSERVÉ AUX ÉTUDIANTS CONNECTÉS.
+ 
+    L'étudiant saisit son matricule dans le formulaire (champ qu'il connaît,
+    contrairement à un id technique). Le backend retrouve l'étudiant
+    correspondant, MAIS vérifie que ce matricule appartient bien au compte
+    actuellement connecté (via le token JWT) avant d'accepter le dépôt.
+    Cela empêche qu'un étudiant dépose un rapport au nom d'un autre,
+    même en tapant un matricule qui n'est pas le sien.
+ 
+    Reçoit : {"matricule": "...", "titre": "...", "id_session": ...,
               "resume": "..." (optionnel), "fichier_url": "..." (optionnel)}
     """
-    data = request.get_json()
-
-    champs_requis = ["titre", "id_etudiant", "id_session"]
+    claims = get_jwt()
+    if claims.get("role") != "etudiant":
+        return jsonify({"erreur": "Seul un étudiant peut déposer un rapport"}), 403
+ 
+    id_etudiant_token = claims.get("id_etudiant")
+    if not id_etudiant_token:
+        return jsonify({"erreur": "Ce compte n'est lié à aucune fiche étudiant"}), 400
+ 
+    data = request.get_json(force=True)
+ 
+    champs_requis = ["matricule", "titre", "id_session"]
     if not data or not all(champ in data for champ in champs_requis):
         return jsonify({"erreur": f"Champs requis : {', '.join(champs_requis)}"}), 400
-
-    if not Etudiant.query.get(data["id_etudiant"]):
-        return jsonify({"erreur": "Étudiant introuvable"}), 404
+ 
+    etudiant = Etudiant.query.filter_by(matricule=data["matricule"]).first()
+    if not etudiant:
+        return jsonify({"erreur": "Aucun étudiant ne correspond à ce matricule"}), 404
+ 
+    # Vérification anti-usurpation : le matricule saisi doit être celui
+    # de l'étudiant réellement connecté, pas celui d'un tiers.
+    if etudiant.id_etudiant != id_etudiant_token:
+        return jsonify({"erreur": "Ce matricule ne correspond pas à votre compte"}), 403
+ 
     if not Session.query.get(data["id_session"]):
         return jsonify({"erreur": "Session introuvable"}), 404
-
+ 
+    # Un seul rapport par étudiant et par session
+    rapport_existant = Rapport.query.filter_by(
+        id_etudiant=etudiant.id_etudiant,
+        id_session=data["id_session"]
+    ).first()
+    if rapport_existant:
+        return jsonify({"erreur": "Vous avez déjà déposé un rapport pour cette session"}), 400
+ 
     nouveau_rapport = Rapport(
         titre=data["titre"],
-        id_etudiant=data["id_etudiant"],
+        id_etudiant=etudiant.id_etudiant,
         id_session=data["id_session"],
         resume=data.get("resume"),
         fichier_url=data.get("fichier_url")
     )
-
+ 
     db.session.add(nouveau_rapport)
     db.session.commit()
-
+ 
     return jsonify(nouveau_rapport.to_dict()), 201
 
 # PROGRAMME — génération automatique (P1) + validation (P2)
