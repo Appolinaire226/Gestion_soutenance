@@ -475,7 +475,7 @@ def voir_mes_soutenances():
         # On injecte le rôle de cet enseignant pour cette soutenance (ex: président, examinateur...)
         dico_soutenance["mon_role_jury"] = role
         
-        # Bonus pour faciliter la vie du dev Flutter : on injecte les détails de la salle et de l'étudiant
+        # on injecte les détails de la salle et de l'étudiant
         if programme.salle:
             dico_soutenance["salle_nom"] = programme.salle.nom_salle
             dico_soutenance["salle_batiment"] = programme.salle.batiment
@@ -488,6 +488,41 @@ def voir_mes_soutenances():
         toutes_mes_soutenances.append(dico_soutenance)
 
     return jsonify(toutes_mes_soutenances), 200
+# route pour lister tous les programmes
+    @programme_bp.route("/etudiant/tous-les-programmes", methods=["GET"])
+@jwt_required()
+def voir_tous_les_programmes():
+    """
+    Retourne la liste complète de tous les programmes de soutenance.
+    """
+    # 1. Sécurité : Vérifier que c'est bien un étudiant qui fait la demande
+    claims = get_jwt()
+    if claims.get("role") != "etudiant":
+        return jsonify({"erreur": "Accès réservé aux étudiants"}), 403
+
+    # 2. Récupérer tous les programmes enregistrés dans la base de données
+    tous_les_programmes = Programme.query.all()
+
+    # 3. Construire la liste enrichie pour le Front
+    liste_complete = []
+    for p in tous_les_programmes:
+        dico_p = p.to_dict()
+        
+        # Infos de la salle
+        if p.salle:
+            dico_p["salle_nom"] = p.salle.nom_salle
+            dico_p["salle_batiment"] = p.salle.batiment
+            
+        # Infos du rapport et de l'étudiant qui soutient
+        if p.rapport:
+            dico_p["titre_rapport"] = p.rapport.titre
+            if p.rapport.etudiant:
+                etudiant = p.rapport.etudiant
+                dico_p["etudiant_nom_complet"] = f"{etudiant.nom} {etudiant.prenom}"
+        
+        liste_complete.append(dico_p)
+
+    return jsonify(liste_complete), 200
 
 
 
