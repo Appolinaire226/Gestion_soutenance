@@ -611,3 +611,38 @@ def saisir_resultat():
     db.session.commit()
 
     return jsonify(nouveau_resultat.to_dict()), 201
+
+@resultats_bp.route("/all", methods=["GET"])
+@jwt_required()
+def voir_tous_les_resultats():
+    """
+    Retourne la liste complète de tous les résultats de toutes les soutenances.
+    Accessible par les enseignants ET les étudiants.
+    """
+    # 1. Sécurité : On vérifie le rôle (les deux ont le droit)
+    claims = get_jwt()
+    role = claims.get("role")
+    
+    if role not in ["enseignant", "etudiant", "admin"]:
+        return jsonify({"erreur": "Accès non autorisé"}), 403
+
+    # 2. Récupérer tous les résultats de la base de données
+    tous_les_resultats = Resultat.query.all()
+    
+    # Enrichir les données 
+    liste_complete = []
+    for res in tous_les_resultats:
+        dico_res = res.to_dict()
+        
+        # On remonte vers le Programme -> Rapport -> Étudiant pour recuperer les noms et titres
+        programme = Programme.query.get(res.id_programme)
+        if programme:
+            if programme.rapport:
+                dico_res["titre_rapport"] = programme.rapport.titre
+                if programme.rapport.etudiant:
+                    etudiant = programme.rapport.etudiant
+                    dico_res["etudiant_nom_complet"] = f"{etudiant.nom} {etudiant.prenom}"
+        
+        liste_complete.append(dico_res)
+        
+    return jsonify(liste_complete), 200
