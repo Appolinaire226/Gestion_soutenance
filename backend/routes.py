@@ -445,7 +445,49 @@ def valider_programme(id_programme):
 @jwt_required()
 def voir_validations(id_programme):
     validations = ValidationProgramme.query.filter_by(id_programme=id_programme).all()
-    return jsonify([v.to_dict() for v in validations]), 200
+    return jsonify([v.to_dict() for v in validations]), 200  
+
+@programme_bp.route("/enseignant/mes-soutenances", methods=["GET"])
+@jwt_required()
+def voir_mes_soutenances():
+    """
+    Retourne uniquement les programmes (soutenances) où l'enseignant connecté
+    est membre du jury.
+    """
+    # 1. Récupérer les infos du token JWT
+    claims = get_jwt()
+    id_enseignant = claims.get("id_enseignant")
+
+    if not id_enseignant:
+        return jsonify({"erreur": "Cet utilisateur n'est pas lié à un enseignant"}), 403
+
+    # 2. Rejoint la table Programme et Jury pour filtrer par enseignant
+    # On récupère le programme ET le rôle de l'enseignant dans ce jury spécifique
+    resultats = db.session.query(Programme, Jury.role_jury).join(
+        Jury, Programme.id_programme == Jury.id_programme
+    ).filter(Jury.id_enseignant == id_enseignant).all()
+
+    # 3. Construire la réponse pour le dashboard Flutter
+    toutes_mes_soutenances = []
+    for programme, role in resultats:
+        dico_soutenance = programme.to_dict()
+        
+        # On injecte le rôle de cet enseignant pour cette soutenance (ex: président, examinateur...)
+        dico_soutenance["mon_role_jury"] = role
+        
+        # Bonus pour faciliter la vie du dev Flutter : on injecte les détails de la salle et de l'étudiant
+        if programme.salle:
+            dico_soutenance["salle_nom"] = programme.salle.nom_salle
+            dico_soutenance["salle_batiment"] = programme.salle.batiment
+            
+        if programme.rapport and programme.rapport.etudiant:
+            etudiant = programme.rapport.etudiant
+            dico_soutenance["etudiant_nom_complet"] = f"{etudiant.nom} {etudiant.prenom}"
+            dico_soutenance["titre_rapport"] = programme.rapport.titre
+
+        toutes_mes_soutenances.append(dico_soutenance)
+
+    return jsonify(toutes_mes_soutenances), 200
 
 
 
