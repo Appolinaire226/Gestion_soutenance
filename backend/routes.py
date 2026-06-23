@@ -489,7 +489,7 @@ def voir_mes_soutenances():
 
     return jsonify(toutes_mes_soutenances), 200
 # route pour lister tous les programmes
-    @programme_bp.route("/etudiant/tous-les-programmes", methods=["GET"])
+@programme_bp.route("/etudiant/tous-les-programmes", methods=["GET"])
 @jwt_required()
 def voir_tous_les_programmes():
     """
