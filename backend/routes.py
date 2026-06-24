@@ -48,7 +48,6 @@ def login():
 
 # Route pour récupérer les emails des enseignants (à partir de la table Enseignant)
 @auth_bp.route("/enseignants/emails", methods=["GET"])
-@jwt_required()
 def get_enseignants_emails():
     """
     Récupère les emails de tous les enseignants
@@ -73,7 +72,6 @@ def get_enseignants_emails():
         return jsonify({"erreur": f"Erreur lors de la récupération des emails : {str(e)}"}), 500
 # Route pour récupérer les emails de tous les administrateurs
 @auth_bp.route("/admins/emails", methods=["GET"])
-@jwt_required()
 def get_admins_emails():
     """
     Récupère les emails de tous les administrateurs
