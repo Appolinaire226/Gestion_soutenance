@@ -382,7 +382,39 @@ def voir_rapport(id_rapport):
         return jsonify({"erreur": "Rapport introuvable"}), 404
     return jsonify(rapport.to_dict()), 200
 
+@rapports_bp.route("/etudiants", methods=["GET"])
+@jwt_required()
+def rapports_avec_etudiants():
+    """
+    Retourne tous les rapports avec les infos des étudiants
+    """
+    rapports = Rapport.query.all()
+    
+    resultat = []
+    for r in rapports:
+        resultat.append({
+            "id_rapport": r.id_rapport,
+            "titre": r.titre,
+            "resume": r.resume,
+            "fichier_url": r.fichier_url,
+            "date_depot": r.date_depot.isoformat() if r.date_depot else None,
+            "statut": r.statut,
+            "id_session": r.id_session,
+            "session": r.session.libelle if r.session else None,
+            "etudiant": {
+                "id_etudiant": r.etudiant.id_etudiant,
+                "matricule": r.etudiant.matricule,
+                "nom": r.etudiant.nom,
+                "prenom": r.etudiant.prenom,
+                "email": r.etudiant.email,
+                "telephone": r.etudiant.telephone,
+                "filiere": r.etudiant.filiere.libelle if r.etudiant.filiere else None
+            } if r.etudiant else None
+        })
 
+    return jsonify(resultat), 200
+
+#
 @rapports_bp.route("/", methods=["POST"])
 @jwt_required()
 def deposer_rapport():
