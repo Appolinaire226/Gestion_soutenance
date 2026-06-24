@@ -56,19 +56,6 @@ def login():
                               "Contactez l'administrateur."
                 }), 403
 
-        # 3. Pour un étudiant : vérifier qu'il est bien lié à une fiche étudiant
-        if role_attendu == "etudiant":
-            if not utilisateur.id_etudiant:
-                return jsonify({
-                    "erreur": "Ce compte étudiant n'est lié à aucune fiche étudiant. "
-                              "Contactez l'administrateur."
-                }), 403
-            etudiant = Etudiant.query.get(utilisateur.id_etudiant)
-            if not etudiant:
-                return jsonify({
-                    "erreur": "La fiche étudiant liée à ce compte est introuvable. "
-                              "Contactez l'administrateur."
-                }), 403
 
         # 4. Pour un admin : pas de fiche liée, juste vérifier le rôle (déjà fait ci-dessus)
 
