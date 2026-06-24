@@ -32,7 +32,7 @@ def login():
         return jsonify({"erreur": "Email ou mot de passe incorrect"}), 401
 
     # --- Vérification de cohérence rôle/profil ---
-    role_attendu = data.get("role_attendu")
+    role_attendu = data.get("role")
 
     if role_attendu:
         # 1. Le rôle du compte doit correspondre au profil choisi à l'accueil
