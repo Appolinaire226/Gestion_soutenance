@@ -88,7 +88,55 @@ def login():
         "id_enseignant": utilisateur.id_enseignant,
         "id_etudiant": utilisateur.id_etudiant
     }), 200
-    
+
+# Route pour récupérer les emails des enseignants (à partir de la table Enseignant)
+@auth_bp.route("/enseignants/emails", methods=["GET"])
+@jwt_required()
+def get_enseignants_emails():
+    """
+    Récupère les emails de tous les enseignants
+    Retourne : {"emails": ["prof1@example.com", "prof2@example.com"]}
+    """
+    try:
+        # Récupérer tous les enseignants
+        enseignants = Enseignant.query.all()
+        
+        # Récupérer les emails à partir des id_enseignant
+        emails = []
+        for enseignant in enseignants:
+            utilisateur = Utilisateur.query.filter_by(id_enseignant=enseignant.id_enseignant).first()
+            if utilisateur:
+                emails.append(utilisateur.email)
+        
+        return jsonify({
+            "emails": emails
+        }), 200
+        
+    except Exception as e:
+        return jsonify({"erreur": f"Erreur lors de la récupération des emails : {str(e)}"}), 500
+# Route pour récupérer les emails de tous les administrateurs
+@auth_bp.route("/admins/emails", methods=["GET"])
+@jwt_required()
+def get_admins_emails():
+    """
+    Récupère les emails de tous les administrateurs
+    Retourne : {"emails": ["admin1@example.com", "admin2@example.com"]}
+    """
+    try:
+        # Récupérer tous les utilisateurs ayant le rôle "admin"
+        admins = Utilisateur.query.filter_by(role="admin").all()
+        
+        # Extraire uniquement les emails
+        emails = [admin.email for admin in admins]
+        
+        return jsonify({
+            "emails": emails
+        }), 200
+        
+    except Exception as e:
+        return jsonify({"erreur": f"Erreur lors de la récupération des emails des administrateurs : {str(e)}"}), 500
+
+
 @auth_bp.route("/register", methods=["POST"])
 def register():
     """
