@@ -10,7 +10,6 @@ from models import (
 )
 from services.planificateur import generer_programme
 
-
 # AUTH — connexion et création de comptes
 
 auth_bp = Blueprint("auth", __name__)
@@ -31,10 +30,10 @@ def login():
 
     if not utilisateur or not check_password_hash(utilisateur.mot_de_passe_hash, data["mot_de_passe"]):
         return jsonify({"erreur": "Email ou mot de passe incorrect"}), 401
-        
-     # --- Vérification de cohérence rôle/profil ---
-     role_attendu = data.get("role_attendu")
-    
+
+    # --- Vérification de cohérence rôle/profil ---
+    role_attendu = data.get("role_attendu")
+
     if role_attendu:
         # 1. Le rôle du compte doit correspondre au profil choisi à l'accueil
         if utilisateur.role != role_attendu:
@@ -42,7 +41,7 @@ def login():
                 "erreur": f"Ce compte n'est pas un compte {role_attendu}. "
                           f"Veuillez sélectionner le bon profil."
             }), 403
- 
+
         # 2. Pour un enseignant : vérifier qu'il est bien lié à une fiche enseignant
         if role_attendu == "enseignant":
             if not utilisateur.id_enseignant:
@@ -56,7 +55,7 @@ def login():
                     "erreur": "La fiche enseignant liée à ce compte est introuvable. "
                               "Contactez l'administrateur."
                 }), 403
- 
+
         # 3. Pour un étudiant : vérifier qu'il est bien lié à une fiche étudiant
         if role_attendu == "etudiant":
             if not utilisateur.id_etudiant:
@@ -70,9 +69,9 @@ def login():
                     "erreur": "La fiche étudiant liée à ce compte est introuvable. "
                               "Contactez l'administrateur."
                 }), 403
- 
+
         # 4. Pour un admin : pas de fiche liée, juste vérifier le rôle (déjà fait ci-dessus)
- 
+
     token = create_access_token(
         identity=str(utilisateur.id_utilisateur),
         additional_claims={
@@ -81,7 +80,7 @@ def login():
             "id_etudiant": utilisateur.id_etudiant
         }
     )
- 
+
     return jsonify({
         "token": token,
         "role": utilisateur.role,
@@ -89,7 +88,7 @@ def login():
         "id_enseignant": utilisateur.id_enseignant,
         "id_etudiant": utilisateur.id_etudiant
     }), 200
-
+    
 @auth_bp.route("/register", methods=["POST"])
 def register():
     """
