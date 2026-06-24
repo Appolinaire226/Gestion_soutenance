@@ -31,62 +31,19 @@ def login():
     if not utilisateur or not check_password_hash(utilisateur.mot_de_passe_hash, data["mot_de_passe"]):
         return jsonify({"erreur": "Email ou mot de passe incorrect"}), 401
 
-    # --- Vérification de cohérence rôle/profil ---
-    role_attendu = data.get("role")
-
-    if role_attendu:
-        # 1. Le rôle du compte doit correspondre au profil choisi à l'accueil
-        if utilisateur.role != role_attendu:
-            return jsonify({
-                "erreur": f"Ce compte n'est pas un compte {role_attendu}. "
-                          f"Veuillez sélectionner le bon profil."
-            }), 403
-
-        # 2. Pour un enseignant : vérifier qu'il est bien lié à une fiche enseignant
-        if role_attendu == "enseignant":
-            if not utilisateur.id_enseignant:
-                return jsonify({
-                    "erreur": "Ce compte enseignant n'est lié à aucune fiche enseignant. "
-                              "Contactez l'administrateur."
-                }), 403
-            enseignant = Enseignant.query.get(utilisateur.id_enseignant)
-            if not enseignant:
-                return jsonify({
-                    "erreur": "La fiche enseignant liée à ce compte est introuvable. "
-                              "Contactez l'administrateur."
-                }), 403
-
-        # 3. Pour un étudiant : vérifier qu'il est bien lié à une fiche étudiant
-        if role_attendu == "etudiant":
-            if not utilisateur.id_etudiant:
-                return jsonify({
-                    "erreur": "Ce compte étudiant n'est lié à aucune fiche étudiant. "
-                              "Contactez l'administrateur."
-                }), 403
-            etudiant = Etudiant.query.get(utilisateur.id_etudiant)
-            if not etudiant:
-                return jsonify({
-                    "erreur": "La fiche étudiant liée à ce compte est introuvable. "
-                              "Contactez l'administrateur."
-                }), 403
-
-        # 4. Pour un admin : pas de fiche liée, juste vérifier le rôle (déjà fait ci-dessus)
-
+    
     token = create_access_token(
         identity=str(utilisateur.id_utilisateur),
         additional_claims={
             "role": utilisateur.role,
-            "id_enseignant": utilisateur.id_enseignant,
-            "id_etudiant": utilisateur.id_etudiant
+            "id_enseignant": utilisateur.id_enseignant
         }
     )
 
     return jsonify({
         "token": token,
         "role": utilisateur.role,
-        "id_utilisateur": utilisateur.id_utilisateur,
-        "id_enseignant": utilisateur.id_enseignant,
-        "id_etudiant": utilisateur.id_etudiant
+        "id_utilisateur": utilisateur.id_utilisateur
     }), 200
 
 # Route pour récupérer les emails des enseignants (à partir de la table Enseignant)
