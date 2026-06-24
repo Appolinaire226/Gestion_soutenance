@@ -634,6 +634,77 @@ def voir_tous_les_programmes():
 
     return jsonify(liste_complete), 200
 
+#Programme d'un étudiant
+@programme_bp.route("/etudiant/<string:matricule>", methods=["GET"])
+@jwt_required()
+def programme_etudiant(matricule):
+    """
+    Retourne le programme de soutenance d'un étudiant à partir de son matricule
+    """
+    try:
+        etudiant = Etudiant.query.filter_by(matricule=matricule).first()
+        if not etudiant:
+            return jsonify({"erreur": "Étudiant introuvable"}), 404
+
+        # Récupérer les rapports de l'étudiant
+        rapports = Rapport.query.filter_by(id_etudiant=etudiant.id_etudiant).all()
+        
+        programmes = []
+        for r in rapports:
+            programme = Programme.query.filter_by(id_rapport=r.id_rapport).first()
+            if programme:
+                # Récupérer les jurys
+                jurys = Jury.query.filter_by(id_programme=programme.id_programme).all()
+                programmes.append({
+                    "id_programme": programme.id_programme,
+                    "date_heure": programme.date_heure.isoformat() if programme.date_heure else None,
+                    "duree_minutes": programme.duree_minutes,
+                    "statut": programme.statut,
+                    "rapport": {
+                        "id_rapport": r.id_rapport,
+                        "titre": r.titre,
+                        "statut": r.statut
+                    },
+                    "session": {
+                        "id_session": programme.session.id_session,
+                        "libelle": programme.session.libelle
+                    } if programme.session else None,
+                    "salle": {
+                        "id_salle": programme.salle.id_salle,
+                        "nom": programme.salle.nom_salle
+                    } if programme.salle else None,
+                    "jury": [
+                        {
+                            "id_jury": j.id_jury,
+                            "role": j.role,
+                            "present": j.present if j.present is not None else False,
+                            "enseignant": {
+                                "id_enseignant": j.enseignant.id_enseignant,
+                                "nom": j.enseignant.nom,
+                                "prenom": j.enseignant.prenom
+                            } if j.enseignant else None
+                        }
+                        for j in jurys
+                    ]
+                })
+
+        return jsonify({
+            "etudiant": {
+                "id_etudiant": etudiant.id_etudiant,
+                "matricule": etudiant.matricule,
+                "nom": etudiant.nom,
+                "prenom": etudiant.prenom,
+                "email": etudiant.email,
+                "filiere": etudiant.filiere.libelle if etudiant.filiere else None
+            },
+            "programmes": programmes,
+            "total": len(programmes)
+        }), 200
+
+    except Exception as e:
+        print(f" Erreur: {str(e)}")
+        return jsonify({"erreur": str(e)}), 500
+
 
 
 # JURY — composition du jury + présence effective
